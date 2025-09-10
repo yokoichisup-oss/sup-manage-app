@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}ダッシュボード{% endblock %}
+{% block header %}ダッシュボード{% endblock %}
+{% block content %}
+
+<!-- 未回答の出欠確認がある場合のみ、このセクションを表示 -->
+{% if unanswered_attendances %}
+<div class="card mb-4 border-warning">
+    <div class="card-header fw-bold text-warning">
+        ⚠️ 出欠未回答の練習があります
+    </div>
+    <div class="list-group list-group-flush">
+        {% for attendance in unanswered_attendances %}
+        <!-- 各練習の詳細ページへリンク -->
+        <a href="{{ url_for('practice_detail', practice_id=attendance.practice_id) }}" class="list-group-item list-group-item-action">
+            {{ attendance.practice.title }} ({{ attendance.practice.practice_date.strftime('%m/%d') }})
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- メインメニュー -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title">ボード管理</h5>
+                <p class="card-text">SUPボードの現在位置や状態を管理します。</p>
+                <a href="{{ url_for('board_index') }}" class="btn btn-primary mt-auto">ボード管理へ</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title">チーム練習管理</h5>
+                <p class="card-text">チーム練習の出欠確認や、ボードの運搬計画を管理します。</p>
+                <a href="{{ url_for('practice_index') }}" class="btn btn-primary mt-auto">練習管理へ</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ↓↓ お知らせ表示エリアをここに移動しました ↓↓ -->
+{% if announcements %}
+<hr>
+<div class="card mb-4">
+    <div class="card-header fw-bold">
+        📢 お知らせ
+    </div>
+    <div class="card-body">
+        {% for announcement in announcements %}
+        <div class="alert alert-light border-start border-5 border-primary mb-2">
+            <h5 class="alert-heading fs-6">{{ announcement.title }}</h5>
+            <p class="mb-1 small">{{ announcement.content | nl2br }}</p>
+            <hr class="my-1">
+            <p class="mb-0 text-muted small">投稿: {{ announcement.author.username }} ({{ announcement.timestamp.strftime('%Y/%m/%d') }})</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

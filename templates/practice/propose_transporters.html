@@ -1,0 +1,27 @@
+    {% extends 'base.html' %}
+    {% block title %}運搬候補者{% endblock %}
+    {% block header %}運搬候補者 - {{ practice.title }}{% endblock %}
+    {% block content %}
+    
+    <div class="card">
+        <div class="card-header">
+            システムによる運搬候補者リスト
+        </div>
+        <div class="card-body">
+            <p class="card-text">
+                以下のメンバーは、今週の平日に練習に参加しており、かつこのチーム練習にも参加予定のため、運搬の有力候補です。
+            </p>
+            <ul class="list-group">
+                {% for candidate in candidates %}
+                <li class="list-group-item">{{ candidate.username }} ({{ candidate.generation }})</li>
+                {% else %}
+                <li class="list-group-item">スプレッドシートの情報と照合した結果、有力な候補者が見つかりませんでした。</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="card-footer">
+            <a href="{{ url_for('practice_detail', practice_id=practice.id) }}" class="btn btn-secondary">練習詳細に戻る</a>
+        </div>
+    </div>
+
+    {% endblock %}

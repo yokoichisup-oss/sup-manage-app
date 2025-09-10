@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>「{{ board.name }}」の更新履歴</title>
+</head>
+<body>
+    <h1>ボード「{{ board.name }}」の更新履歴</h1>
+
+    <table border="1" style="width:100%;">
+        <thead>
+            <tr>
+                <th>変更前の場所</th>
+                <th>変更後の場所</th>
+                <th>更新者</th>
+                <th>更新日時</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for history in histories %}
+            <tr>
+                <td>{{ history.previous_location }}</td>
+                <td>{{ history.new_location }}</td>
+                <td>{{ history.updated_by }}</td>
+                <td>{{ history.updated_at }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4">このボードの更新履歴はまだありません。</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <br>
+    <a href="/">一覧に戻る</a>
+</body>
+</html>

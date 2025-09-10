@@ -1,0 +1,30 @@
+    {% extends 'base.html' %}
+
+    {% block title %}新しいお知らせを作成{% endblock %}
+    {% block header %}新しいお知らせを作成{% endblock %}
+
+    {% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form action="{{ url_for('new_announcement') }}" method="POST">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">タイトル</label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="content" class="form-label">内容</label>
+                            <textarea class="form-control" id="content" name="content" rows="5" required></textarea>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">投稿する</button>
+                            <a href="{{ url_for('admin_announcements') }}" class="btn btn-secondary">キャンセル</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+    

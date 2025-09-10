@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+{% block title %}練習詳細{% endblock %}
+{% block header %}{{ practice.title }} - 詳細{% endblock %}
+{% block content %}
+    
+<div class="row">
+    <!-- 左側: 出欠回答フォーム -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                あなたの出欠
+            </div>
+            <div class="card-body">
+                {% if user_attendance %}
+                <form method="POST" action="{{ url_for('answer_attendance', attendance_id=user_attendance.id) }}">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="status" id="status_present" value="present" {% if user_attendance.status == 'present' %}checked{% endif %} onclick="toggleReason(false)">
+                            <label class="form-check-label" for="status_present">出席</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="status" id="status_absent" value="absent" {% if user_attendance.status == 'absent' %}checked{% endif %} onclick="toggleReason(true)">
+                            <label class="form-check-label" for="status_absent">欠席</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="status" id="status_late_leave" value="late_leave" {% if user_attendance.status == 'late_leave' %}checked{% endif %} onclick="toggleReason(true)">
+                            <label class="form-check-label" for="status_late_leave">早退</label>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="notes-field" style="display:none;">
+                        <label for="notes" class="form-label">備考 (遅刻の予定など)</label>
+                        <textarea class="form-control" name="notes" id="notes" rows="2">{{ user_attendance.notes or '' }}</textarea>
+                    </div>
+                    <div class="mb-3" id="reason-field" style="display:none;">
+                        <label for="reason" class="form-label">理由</label>
+                        <textarea class="form-control" name="reason" id="reason" rows="2">{{ user_attendance.reason or '' }}</textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">回答を更新</button>
+                </form>
+                {% else %}
+                <p class="text-muted">あなたはこの練習の出欠確認の対象ではありません。</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 右側: 出欠状況一覧 -->
+    <div class="col-lg-8">
+        <h4>出欠状況</h4>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped">
+                <thead class="table-light">
+                    <tr>
+                        <th>名前</th>
+                        <th>期</th>
+                        <th>出欠</th>
+                        <th>理由・備考</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for att in all_attendances %}
+                    <tr>
+                        <td>{{ att.user.username }}</td>
+                        <td>{{ att.user.generation }}</td>
+                        <td>
+                            {% if att.status == 'present' %}<span class="badge bg-success">出席</span>
+                            {% elif att.status == 'absent' %}<span class="badge bg-danger">欠席</span>
+                            {% elif att.status == 'late_leave' %}<span class="badge bg-warning text-dark">早退</span>
+                            {% else %}<span class="badge bg-secondary">未回答</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if att.status == 'present' %}{{ att.notes or '' }}
+                            {% else %}{{ att.reason or '' }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 管理者(admin)としてログインしている場合のみ、この管理エリアを表示 -->
+{% if current_user.role == 'admin' %}
+<hr class="my-4">
+<div class="row">
+    <!-- 左側: ボード本数サマリー -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header fw-bold">ボード必要本数</div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">出席・早退予定者数: <span class="fw-bold">{{ assignable_attendees|length }}人</span></li>
+                <li class="list-group-item">開催地のボード数: <span class="fw-bold">{{ boards_at_location }}本</span></li>
+                <li class="list-group-item">最大参加人数の部: <span class="fw-bold">{{ max_session_members }}人</span></li>
+                <li class="list-group-item list-group-item-primary">最低運搬必要本数: <span class="fw-bold fs-5">{{ required_transport_boards }}本</span></li>
+            </ul>
+        </div>
+    </div>
+    <!-- 右側: 部制とメンバー割り当て -->
+    <div class="col-lg-8" id="session-management">
+        <h4>部制管理</h4>
+        <div class="mb-3 d-flex gap-2">
+            <form action="{{ url_for('add_session', practice_id=practice.id) }}" method="POST">
+                <button type="submit" class="btn btn-secondary">部を追加する</button>
+            </form>
+        </div>
+        
+        <!-- ▼▼▼ ここに準備コードを追加しました ▼▼▼ -->
+        {% set transporter_to_ids = transports_to|map(attribute='user_id')|list %}
+
+        {% for session in practice.sessions|sort(attribute='session_number') %}
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                {{ session.session_number }}部 ({{ session.members|length }}人)
+                <form action="{{ url_for('delete_session', session_id=session.id) }}" method="POST">
+                    <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('この部を削除しますか？割り当てられたメンバーは未割り当てに戻ります。');">部を削除</button>
+                </form>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for member in session.members|sort(attribute='username') %}
+                <!-- ▼▼▼ ここのliタグに、ハイライト用のif文を追加しました ▼▼▼ -->
+                <li class="list-group-item d-flex justify-content-between align-items-center {% if member.id in transporter_to_ids %}bg-info-subtle{% endif %}">
+                    {{ member.username }} ({{ member.generation }})
+                    <form action="{{ url_for('unassign_member', session_id=session.id, user_id=member.id) }}" method="POST">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">外す</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+
+        <hr>
+        <h5>未割り当ての出席・早退者</h5>
+        {% if unassigned_attendees %}
+        <form action="{{ url_for('assign_member') }}" method="POST">
+            <input type="hidden" name="practice_id" value="{{ practice.id }}">
+            <div class="mb-3 border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                {% for user in unassigned_attendees|sort(attribute='username') %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="user_ids" value="{{ user.id }}" id="user-{{ user.id }}">
+                    <label class="form-check-label" for="user-{{ user.id }}">
+                        {{ user.username }} ({{ user.generation }})
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="input-group">
+                <span class="input-group-text">を</span>
+                <select class="form-select" name="session_id">
+                    {% for session in practice.sessions|sort(attribute='session_number') %}
+                    <option value="{{ session.id }}">{{ session.session_number }}部</option>
+                    {% endfor %}
+                </select>
+                <span class="input-group-text">に</span>
+                <button class="btn btn-primary" type="submit" {% if not practice.sessions %}disabled{% endif %}>一括割り当て</button>
+            </div>
+        </form>
+        {% else %}
+        <p class="text-muted">未割り当ての出席・早退者はいません。</p>
+        {% endif %}
+    </div>
+</div>
+
+<hr class="my-4">
+<div class="row">
+    <!-- 左側: 行きの運搬計画 -->
+    <div class="col-lg-6 mb-4">
+        <h4>運搬計画 (行き)</h4>
+        <div class="card mb-4">
+            <div class="card-header">運搬を割り当てる</div>
+            <div class="card-body">
+                <form action="{{ url_for('assign_transport') }}" method="POST">
+                    <input type="hidden" name="practice_id" value="{{ practice.id }}">
+                    <input type="hidden" name="direction" value="to">
+                    <div class="mb-3">
+                        <label for="transport_user_to" class="form-label">運搬者</label>
+                        <select name="user_id" id="transport_user_to" class="form-select">
+                            {% for user in assignable_attendees|sort(attribute='username') %}
+                            <option value="{{ user.id }}">{{ user.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">運搬するボード</label>
+                        <div class="border rounded p-2" style="max-height: 150px; overflow-y: auto;">
+                            {% for board in all_boards %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="board_ids" value="{{ board.id }}" id="board-to-{{ board.id }}">
+                                <label class="form-check-label" for="board-to-{{ board.id }}">
+                                    {{ board.name }} (現在: {{ board.location }})
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">割り当て</button>
+                </form>
+            </div>
+        </div>
+        <h5>現在の運搬計画</h5>
+        <ul class="list-group">
+            {% for transport in transports_to %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>{{ transport.user.username }}</strong> が <br>
+                    <small>{{ transport.board.name }}</small> を運搬
+                </div>
+                <form action="{{ url_for('unassign_transport', transport_id=transport.id) }}" method="POST">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">解除</button>
+                </form>
+            </li>
+            {% else %}
+            <li class="list-group-item">まだ行きの運搬計画はありません。</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <!-- 右側: 帰りの運搬計画 -->
+    <div class="col-lg-6">
+        <h4>運搬計画 (帰り)</h4>
+        <div class="card mb-4">
+            <div class="card-header">運搬を割り当てる (確定分)</div>
+            <div class="card-body">
+                <form action="{{ url_for('assign_transport') }}" method="POST">
+                    <input type="hidden" name="practice_id" value="{{ practice.id }}">
+                    <input type="hidden" name="direction" value="from">
+                    <div class="mb-3">
+                        <label for="transport_user_from" class="form-label">運搬者</label>
+                        <select name="user_id" id="transport_user_from" class="form-select">
+                            {% for user in assignable_attendees|sort(attribute='username') %}
+                            <option value="{{ user.id }}">{{ user.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">運搬するボード</label>
+                        <div class="border rounded p-2" style="max-height: 150px; overflow-y: auto;">
+                            {% for board in boards_at_practice %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="board_ids" value="{{ board.id }}" id="board-from-{{ board.id }}">
+                                <label class="form-check-label" for="board-from-{{ board.id }}">
+                                    {{ board.name }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">割り当て</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">運搬者抽選 (自動割り当て)</div>
+            <div class="card-body">
+                {% set assigned_from_board_ids = transports_from|map(attribute='board_id')|list %}
+                {% set lottery_boards = boards_at_practice|rejectattr('id', 'in', assigned_from_board_ids)|list %}
+                
+                {% if not boards_at_practice %}
+                    <p class="text-muted">練習場所にボードがないため、抽選は実行できません。</p>
+                {% elif not lottery_boards %}
+                    <p class="text-muted">持ち帰る必要のあるボードは、すべて手動で割り当て済みです。</p>
+                {% else %}
+                <form action="{{ url_for('run_lottery', practice_id=practice.id) }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">抽選対象のボードを選択</label>
+                        <div class="border rounded p-2" style="max-height: 150px; overflow-y: auto;">
+                            {% for board in lottery_boards %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="board_ids_for_lottery" value="{{ board.id }}" id="board-lottery-{{ board.id }}">
+                                <label class="form-check-label" for="board-lottery-{{ board.id }}">
+                                    {{ board.name }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <p class="form-text">
+                        抽選対象は出席者のみです。行きの運搬者は、人数が足りない場合のみ対象になります。
+                    </p>
+                    <button type="submit" class="btn btn-warning">選択したボードで抽選を実行</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        
+        <h5>現在の運搬計画</h5>
+        <ul class="list-group">
+            {% for transport in transports_from %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>{{ transport.user.username }}</strong> が <br>
+                    <small>{{ transport.board.name }}</small> を運搬
+                </div>
+                <form action="{{ url_for('unassign_transport', transport_id=transport.id) }}" method="POST">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">解除</button>
+                </form>
+            </li>
+            {% else %}
+            <li class="list-group-item">まだ帰りの運搬計画はありません。</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+<script>
+    function toggleReason(isReason) {
+        const notesField = document.getElementById('notes-field');
+        const reasonField = document.getElementById('reason-field');
+        if (notesField && reasonField) {
+            notesField.style.display = isReason ? 'none' : 'block';
+            reasonField.style.display = isReason ? 'block' : 'none';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const status = document.querySelector('input[name="status"]:checked');
+        if (status) {
+            toggleReason(status.value === 'absent' || status.value === 'late_leave');
+        } else {
+            toggleReason(false);
+        }
+    });
+</script>
+{% endblock %}

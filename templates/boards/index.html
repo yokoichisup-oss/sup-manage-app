@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% block title %}ボード管理{% endblock %}
+{% block header %}ボード管理{% endblock %}
+{% block content %}
+
+{% if current_user.role != 'guest' %}
+<div class="d-flex justify-content-end mb-3">
+    <a href="{{ url_for('add_board') }}" class="btn btn-primary">新しいボードを追加する</a>
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header">
+        各拠点のボード本数
+    </div>
+    <div class="card-body">
+        <ul class="list-group list-group-flush">
+            {% for location, count in location_counts.items() %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ location }}
+                    <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                </li>
+            {% else %}
+                <li class="list-group-item">まだボードがありません。</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover responsive-table">
+        <thead class="table-light">
+            <tr>
+                {% if current_user.role != 'guest' %}
+                <th scope="col"><input type="checkbox" onclick="toggle(this);"></th>
+                {% endif %}
+                <th scope="col">
+                    ボード名
+                    <!-- ↓↓ ここのリンクを修正しました ↓↓ -->
+                    <a href="{{ url_for('board_index', sort_by='name', order='asc') }}">▲</a>
+                    <a href="{{ url_for('board_index', sort_by='name', order='desc') }}">▼</a>
+                </th>
+                <th scope="col">現在の場所</th>
+                <th scope="col" class="d-none d-md-table-cell">最終更新者</th>
+                <th scope="col" class="d-none d-md-table-cell">最終更新日時</th>
+                {% if current_user.role != 'guest' %}
+                <th scope="col">操作</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for board in boards %}
+            <tr>
+                {% if current_user.role != 'guest' %}
+                <td data-label="選択"><input type="checkbox" name="board_ids" value="{{ board.id }}" form="bulk-update-form"></td>
+                {% endif %}
+                <td data-label="ボード名">
+                    <button type="button" class="btn btn-link p-0 text-start" data-bs-toggle="modal" data-bs-target="#boardDetailModal{{ board.id }}">
+                        {{ board.name }}
+                    </button>
+                </td>
+                <td data-label="現在の場所">{{ board.location }}</td>
+                <td data-label="最終更新者" class="d-none d-md-table-cell">{{ board.user }}</td>
+                <td data-label="最終更新日時" class="d-none d-md-table-cell">{{ board.updated_at }}</td>
+                {% if current_user.role != 'guest' %}
+                <td data-label="操作">
+                    <a href="{{ url_for('update_board', board_id=board.id) }}" class="btn btn-secondary btn-sm">更新</a>
+                    <a href="{{ url_for('history', board_id=board.id) }}" class="btn btn-info btn-sm">履歴</a>
+                    <form action="{{ url_for('delete_board', board_id=board.id) }}" method="POST" style="display:inline;">
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('本当にこのボードを削除しますか？');">削除</button>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if current_user.role != 'guest' %}
+<hr>
+<form action="{{ url_for('bulk_update') }}" method="POST" id="bulk-update-form">
+    <div class="card p-3">
+        <h3>選択したボードを一括更新</h3>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label for="location_select" class="form-label">移動先の場所</label>
+                <select name="location_select" id="location_select" class="form-select" onchange="toggleBulkLocationInput()">
+                    <option value="横浜">横浜</option>
+                    <option value="海の公園">海の公園</option>
+                    <option value="平塚">平塚</option>
+                    <option value="日本橋">日本橋</option>
+                    <option value="その他">その他</option>
+                </select>
+            </div>
+            <div class="col-md-5" id="bulk_location_other_p" style="display: none;">
+                <label for="location_other" class="form-label">具体的な場所</label>
+                <input type="text" name="location_other" class="form-control">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-success w-100">一括更新</button>
+            </div>
+        </div>
+    </div>
+</form>
+{% endif %}
+
+{% for board in boards %}
+<div class="modal fade" id="boardDetailModal{{ board.id }}" tabindex="-1" aria-labelledby="boardDetailModalLabel{{ board.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="boardDetailModalLabel{{ board.id }}">ボード詳細: {{ board.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><strong>シリアル番号:</strong> {{ board.serial_number or '登録なし' }}</li>
+                    <li class="list-group-item"><strong>現在の場所:</strong> {{ board.location }}</li>
+                    <li class="list-group-item"><strong>最終更新者:</strong> {{ board.user }}</li>
+                    <li class="list-group-item"><strong>最終更新日時:</strong> {{ board.updated_at }}</li>
+                    <li class="list-group-item"><strong>備考:</strong><br>{{ board.notes or 'なし' }}</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                {% if current_user.role != 'guest' %}
+                <a href="{{ url_for('update_board', board_id=board.id) }}" class="btn btn-primary">このボードを編集</a>
+                {% endif %}
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<script>
+    function toggle(source) {
+        checkboxes = document.querySelectorAll('input[name="board_ids"]');
+        for(var i=0, n=checkboxes.length; i<n; i++) {
+            checkboxes[i].checked = source.checked;
+        }
+    }
+    function toggleBulkLocationInput() {
+        const select = document.getElementById('location_select');
+        const otherLocationP = document.getElementById('bulk_location_other_p');
+        if (select && otherLocationP) {
+            if (select.value === 'その他') {
+                otherLocationP.style.display = 'block';
+            } else {
+                otherLocationP.style.display = 'none';
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', toggleBulkLocationInput);
+</script>
+{% endblock %}

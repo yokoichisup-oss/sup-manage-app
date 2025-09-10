@@ -1,0 +1,62 @@
+    {% extends 'base.html' %}
+
+    {% block title %}ボード情報の更新{% endblock %}
+    {% block header %}「{{ board.name }}」の情報を更新{% endblock %}
+
+    {% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form action="{{ url_for('update_board', board_id=board.id) }}" method="POST">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">ボード名</label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ board.name }}" required>
+                        </div>
+                        <!-- ↓↓ シリアル番号の入力欄を追加 ↓↓ -->
+                        <div class="mb-3">
+                            <label for="serial_number" class="form-label">シリアル番号 (任意)</label>
+                            <input type="text" class="form-control" id="serial_number" name="serial_number" value="{{ board.serial_number or '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="location_select" class="form-label">場所</label>
+                            <select name="location_select" id="location_select" class="form-select" onchange="toggleLocationInput()">
+                                {% set standard_locations = ['横浜', '海の公園', '平塚', '日本橋'] %}
+                                {% for loc in standard_locations %}
+                                    <option value="{{ loc }}" {% if board.location == loc %}selected{% endif %}>{{ loc }}</option>
+                                {% endfor %}
+                                <option value="その他" {% if board.location not in standard_locations %}selected{% endif %}>その他</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="location_other_p" style="display: none;">
+                            <label for="location_other" class="form-label">具体的な場所</label>
+                            <input type="text" name="location_other" class="form-control" value="{% if board.location not in standard_locations %}{{ board.location }}{% endif %}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">備考</label>
+                            <textarea name="notes" id="notes" class="form-control" rows="3">{{ board.notes or '' }}</textarea>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">更新する</button>
+                            <a href="{{ url_for('index') }}" class="btn btn-secondary">一覧に戻る</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleLocationInput() {
+            const select = document.getElementById('location_select');
+            const otherLocationP = document.getElementById('location_other_p');
+            if (select.value === 'その他') {
+                otherLocationP.style.display = 'block';
+            } else {
+                otherLocationP.style.display = 'none';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', toggleLocationInput);
+    </script>
+    {% endblock %}
+    

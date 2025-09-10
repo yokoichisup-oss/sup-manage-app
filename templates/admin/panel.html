@@ -1,0 +1,18 @@
+    {% extends 'base.html' %}
+    {% block title %}管理者ページ{% endblock %}
+    {% block header %}管理者ページ{% endblock %}
+    {% block content %}
+    <div class="list-group">
+        <!-- ↓↓ ユーザー管理へのリンクを有効化 ↓↓ -->
+        <a href="{{ url_for('admin_users') }}" class="list-group-item list-group-item-action">
+            ユーザー管理
+        </a>
+        <a href="{{ url_for('admin_teams') }}" class="list-group-item list-group-item-action">
+            チーム管理
+        </a>
+        <a href="{{ url_for('admin_announcements') }}" class="list-group-item list-group-item-action">
+            お知らせ管理
+        </a>
+    </div>
+    {% endblock %}
+    

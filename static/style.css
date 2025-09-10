@@ -1,0 +1,93 @@
+/* --- 海をテーマにしたカラーテーマ --- */
+:root {
+    --primary-color: #0077b6; /* 深い海の色 */
+    --secondary-color: #90e0ef; /* 浅い海の色 */
+    --accent-color: #fca311; /* 夕日のアクセントカラー */
+    --background-color: #f8f9fa; /* 砂浜の背景色 */
+    --text-color: #343a40;
+}
+
+body {
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+.navbar-dark.bg-dark {
+    background-color: var(--primary-color) !important;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+.btn-primary:hover {
+    background-color: #005f9c;
+    border-color: #005f9c;
+}
+
+.btn-secondary {
+     background-color: #6c757d;
+     border-color: #6c757d;
+}
+
+.btn-info {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: #000;
+}
+.btn-info:hover {
+    background-color: #6bcde0;
+    border-color: #6bcde0;
+}
+
+.badge.bg-primary {
+    background-color: var(--primary-color) !important;
+}
+
+.list-group-item-primary {
+    background-color: #caf0f8;
+}
+
+.alert.border-primary {
+    border-color: var(--secondary-color) !important;
+}
+
+/* --- スマートフォン向けレスポンシブ対応 --- */
+/* 画面幅が768px以下の場合に適用 */
+@media screen and (max-width: 768px) {
+    /* テーブルをカード形式に変換 */
+    .responsive-table thead {
+        display: none; /* PC用のヘッダーを非表示 */
+    }
+    .responsive-table tbody,
+    .responsive-table tr,
+    .responsive-table td {
+        display: block; /* 縦積みにする */
+        width: 100%;
+    }
+    .responsive-table tr {
+        margin-bottom: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: .25rem;
+    }
+    .responsive-table td {
+        text-align: right; /* 値を右寄せ */
+        padding-left: 50%;
+        position: relative;
+        border-top: 1px solid #eee;
+    }
+    .responsive-table td:before {
+        content: attr(data-label); /* data-label属性をヘッダーとして表示 */
+        position: absolute;
+        left: .5rem;
+        width: 45%;
+        padding-right: .5rem;
+        text-align: left;
+        font-weight: bold;
+    }
+    /* 操作ボタンのレイアウト調整 */
+    .responsive-table td[data-label="操作"] form {
+        display: inline-block;
+        margin-left: 5px;
+    }
+}

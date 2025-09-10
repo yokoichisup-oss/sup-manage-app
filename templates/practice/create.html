@@ -1,0 +1,56 @@
+    {% extends 'base.html' %}
+    {% block title %}新しい練習を作成{% endblock %}
+    {% block header %}新しい練習を作成{% endblock %}
+    {% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('create_practice') }}">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">練習名</label>
+                            <input type="text" class="form-control" id="title" name="title" value="チーム練習" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="practice_date" class="form-label">日付</label>
+                                <input type="date" class="form-control" id="practice_date" name="practice_date" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="location" class="form-label">場所</label>
+                                <input type="text" class="form-control" id="location" name="location" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="team_id" class="form-label">対象チーム</label>
+                            <select class="form-select" id="team_id" name="team_id" required>
+                                <option selected disabled value="">選択してください...</option>
+                                {% for team in teams %}
+                                <option value="{{ team.id }}">{{ team.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">対象の期（複数選択可）</label>
+                            <div>
+                                {% for gen in generations %}
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="generations" id="gen-{{ gen }}" value="{{ gen }}">
+                                    <label class="form-check-label" for="gen-{{ gen }}">{{ gen }}</label>
+                                </div>
+                                {% else %}
+                                <p class="text-muted">登録されているユーザーの「期」がありません。先にプロフィールを設定してください。</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">作成して出欠確認を開始</button>
+                            <a href="{{ url_for('practice_index') }}" class="btn btn-secondary">キャンセル</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+    

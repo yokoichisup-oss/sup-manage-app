@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}チーム管理{% endblock %}
+{% block header %}管理者ページ - チーム管理{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header">新しいチームを追加</div>
+            <div class="card-body">
+                <form action="{{ url_for('admin_teams') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="team_name" class="form-label">チーム名</label>
+                        <input type="text" class="form-control" id="team_name" name="team_name" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">追加</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <h4>既存のチーム一覧</h4>
+        <ul class="list-group">
+            {% for team in teams %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                {{ team.name }}
+                <form action="{{ url_for('delete_team', team_id=team.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('このチームを削除しますか？');">削除</button>
+                </form>
+            </li>
+            {% else %}
+            <li class="list-group-item">まだチームが登録されていません。</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

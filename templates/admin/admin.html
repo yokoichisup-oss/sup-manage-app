@@ -1,0 +1,71 @@
+    {% extends 'base.html' %}
+
+    {% block title %}管理者ページ{% endblock %}
+    {% block header %}管理者ページ{% endblock %}
+
+    {% block content %}
+    <div class="row">
+        <div class="col-md-3 mb-4">
+            <div class="list-group">
+                <a href="{{ url_for('admin_panel') }}" class="list-group-item list-group-item-action active" aria-current="true">
+                    ユーザー管理
+                </a>
+                <a href="{{ url_for('admin_announcements') }}" class="list-group-item list-group-item-action">
+                    お知らせ管理
+                </a>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <h4>ユーザー一覧</h4>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>ユーザー名</th>
+                            <th>役割</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td>{{ user.username }}</td>
+                            <td>
+                                {% if user.role == 'admin' %}
+                                    <span class="badge bg-success">管理者</span>
+                                {% elif user.role == 'member' %}
+                                    <span class="badge bg-secondary">一般ユーザー</span>
+                                {% else %}
+                                    <span class="badge bg-info">ゲスト</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.role == 'admin' %}
+                                    {% if user.id != current_user.id %}
+                                    <form action="{{ url_for('demote_user', user_id=user.id) }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-warning btn-sm">降格</button>
+                                    </form>
+                                    {% endif %}
+                                {% elif user.role == 'member' %}
+                                    <form action="{{ url_for('promote_user', user_id=user.id) }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-primary btn-sm">昇格</button>
+                                    </form>
+                                {% endif %}
+                                
+                                {% if user.id != current_user.id and user.role != 'guest' %}
+                                <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('本当にこのユーザーを削除しますか？');">削除</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+    

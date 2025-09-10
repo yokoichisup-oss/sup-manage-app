@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}練習一覧{% endblock %}
+{% block header %}チーム練習管理{% endblock %}
+{% block content %}
+    
+{% if current_user.role == 'admin' %}
+<div class="d-flex justify-content-end mb-3">
+    <a href="{{ url_for('create_practice') }}" class="btn btn-primary">新しい練習を作成</a>
+</div>
+{% endif %}
+
+<div class="list-group">
+    {% for practice in practices %}
+    <div class="list-group-item">
+        <div class="d-flex w-100 justify-content-between">
+            <a href="{{ url_for('practice_detail', practice_id=practice.id) }}" class="text-decoration-none text-dark flex-grow-1">
+                <h5 class="mb-1">{{ practice.title }} ({{ practice.target_team.name }})</h5>
+                <p class="mb-1">場所: {{ practice.location }}</p>
+            </a>
+            <div class="d-flex flex-column align-items-end">
+                <small>{{ practice.practice_date.strftime('%Y年%m月%d日') }}</small>
+                <!-- ↓↓ 練習削除ボタンを追加 ↓↓ -->
+                {% if current_user.role == 'admin' %}
+                <form action="{{ url_for('delete_practice', practice_id=practice.id) }}" method="POST" class="mt-2">
+                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('この練習を削除しますか？関連する出欠情報もすべて削除されます。');">練習を削除</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-center">まだ練習の予定はありません。</p>
+    {% endfor %}
+</div>
+
+{% endblock %}
