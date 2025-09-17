@@ -12,7 +12,8 @@ import random
 import re # 自然順ソートのために正規表現ライブラリをインポート
 from sqlalchemy.orm import joinedload, subqueryload
 
-from models import Practice, Session, User, Attendance, Board, Transport
+# app.py の15行目
+from .models import Practice, Session, User, Attendance, Board, Transport
 
 
 
@@ -844,6 +845,7 @@ def delete_announcement(announcement_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
