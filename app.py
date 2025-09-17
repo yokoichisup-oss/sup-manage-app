@@ -457,55 +457,73 @@ from sqlalchemy.orm import joinedload, subqueryload
 
 # app.py の中
 
-# ... (他のルートやモデル定義) ...
-
-# この関数をまるごと置き換える
 @app.route('/practices/<int:practice_id>')
+
 @login_required
+
 def practice_detail(practice_id):
-    # --- 改善されたコード ---
-    # PracticeやSessionは同じファイル内にあるので、そのまま使える
-    practice = Practice.query.options(
-        subqueryload(Practice.sessions).subqueryload(Session.members)
-    ).get_or_404(practice_id)
 
-    user_attendance = Attendance.query.filter_by(practice_id=practice.id, user_id=current_user.id).first()
+    practice = Practice.query.get_or_404(practice_id)
 
-    all_attendances = Attendance.query.filter_by(practice_id=practice.id)\
-        .join(User)\
-        .options(joinedload(Attendance.user))\
-        .order_by(User.generation, User.username).all()
+    user_attendance = Attendance.query.filter_by(practice_id=practice.id, user_id=current_user.id).first()
 
-    boards_at_location = Board.query.filter_by(location=practice.location).count()
+    all_attendances = Attendance.query.filter_by(practice_id=practice.id).join(User).order_by(User.generation, User.username).all()
 
-    assignable_attendees = [att.user for att in all_attendances if att.status in ['present', 'late_leave']]
-    
-    assigned_user_ids_list = [member.id for session in practice.sessions for member in session.members]
-    
-    assigned_user_ids_set = set(assigned_user_ids_list)
-    unassigned_attendees = [user for user in assignable_attendees if user.id not in assigned_user_ids_set]
+    boards_at_location = Board.query.filter_by(location=practice.location).count()
 
-    max_session_members = 0
-    for session in practice.sessions:
-        if len(session.members) > max_session_members:
-            max_session_members = len(session.members)
-    
-    required_transport_boards = max(0, max_session_members - boards_at_location)
+    assignable_attendees = [att.user for att in all_attendances if att.status in ['present', 'late_leave']]
 
-    transports_to = Transport.query.filter_by(practice_id=practice.id, direction='to').all()
-    transports_from = Transport.query.filter_by(practice_id=practice.id, direction='from').all()
+    assigned_user_ids = [member.id for session in practice.sessions for member in session.members]
 
-    all_boards = Board.query.order_by(Board.name).all()
+    unassigned_attendees = [user for user in assignable_attendees if user.id not in assigned_user_ids]
 
-    transported_to_board_ids = [t.board_id for t in transports_to]
-    boards_at_practice = Board.query.filter((Board.location == practice.location) | (Board.id.in_(transported_to_board_ids))).all()
-    
-    return render_template('practice/detail.html', 
-                           practice=practice, 
-                           # ... 以下、render_templateに渡す変数は省略 ...
-                           )
+    max_session_members = 0
 
-# ... (他のルートやモデル定義が続く) ...
+    for session in practice.sessions:
+
+        if len(session.members) > max_session_members:
+
+            max_session_members = len(session.members)
+
+    required_transport_boards = max(0, max_session_members - boards_at_location)
+
+    transports_to = Transport.query.filter_by(practice_id=practice.id, direction='to').all()
+
+    transports_from = Transport.query.filter_by(practice_id=practice.id, direction='from').all()
+
+    all_boards = Board.query.order_by(Board.name).all()
+
+    transported_to_board_ids = [t.board_id for t in transports_to]
+
+    boards_at_practice = Board.query.filter((Board.location == practice.location) | (Board.id.in_(transported_to_board_ids))).all()
+
+    return render_template('practice/detail.html', 
+
+                           practice=practice, 
+
+                           user_attendance=user_attendance, 
+
+                           all_attendances=all_attendances,
+
+                           boards_at_location=boards_at_location,
+
+                           present_attendees=[att.user for att in all_attendances if att.status == 'present'],
+
+                           assignable_attendees=assignable_attendees,
+
+                           unassigned_attendees=unassigned_attendees,
+
+                           max_session_members=max_session_members,
+
+                           required_transport_boards=required_transport_boards,
+
+                           transports_to=transports_to,
+
+                           transports_from=transports_from,
+
+                           all_boards=all_boards,
+
+                           boards_at_practice=boards_at_practice)
     
 @app.route('/practices/answer/<int:attendance_id>', methods=['POST'])
 @login_required
@@ -822,6 +840,7 @@ def delete_announcement(announcement_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
