@@ -10,7 +10,7 @@ from markupsafe import Markup
 import click
 import random
 import re # 自然順ソートのために正規表現ライブラリをインポート
-
+from sqlalchemy.orm import joinedload, subqueryload
 # JSTタイムゾーンの定義 (UTC+9)
 JST = timezone(timedelta(hours=+9), 'JST')
 
@@ -445,26 +445,70 @@ def create_practice():
         return redirect(url_for('practice_index'))
     return render_template('practice/create.html', teams=teams, generations=generations)
 
+# 必要なモジュールをインポート
+from sqlalchemy.orm import joinedload, subqueryload
+
 @app.route('/practices/<int:practice_id>')
 @login_required
 def practice_detail(practice_id):
-    practice = Practice.query.get_or_404(practice_id)
+    # --- 改善点①: N+1問題の解消 (セッションとメンバー) ---
+    # practiceを取得する際に、subqueryloadを使って関連するsessionsと、
+    # さらにその先のmembersまでを事前に一括で読み込みます。
+    # これにより、後のループで追加のDBアクセスが発生しなくなります。
+    practice = Practice.query.options(
+        subqueryload(Practice.sessions).subqueryload(Session.members)
+    ).get_or_404(practice_id)
+
+    # このクエリは元々効率的なので変更なし
     user_attendance = Attendance.query.filter_by(practice_id=practice.id, user_id=current_user.id).first()
-    all_attendances = Attendance.query.filter_by(practice_id=practice.id).join(User).order_by(User.generation, User.username).all()
+
+    # --- 改善点②: N+1問題の解消 (参加ユーザー) ---
+    # joinedloadを使って、Attendanceと一緒に関連するUserの情報も一括で取得します。
+    # これにより、後の att.user アクセスで追加のDBアクセスが発生しなくなります。
+    all_attendances = Attendance.query.filter_by(practice_id=practice.id)\
+        .join(User)\
+        .options(joinedload(Attendance.user))\
+        .order_by(User.generation, User.username).all()
+
+    # このクエリは元々効率的なので変更なし
     boards_at_location = Board.query.filter_by(location=practice.location).count()
+
+    # --- ↓ここから下のPython処理は、事前のデータ読み込み改善により高速に実行されます ---
+
+    # DBアクセスは発生しない
     assignable_attendees = [att.user for att in all_attendances if att.status in ['present', 'late_leave']]
-    assigned_user_ids = [member.id for session in practice.sessions for member in session.members]
-    unassigned_attendees = [user for user in assignable_attendees if user.id not in assigned_user_ids]
+    
+    # practice.sessions と session.members は既に読み込み済みのため、DBアクセスは発生しない
+    assigned_user_ids_list = [member.id for session in practice.sessions for member in session.members]
+    
+    # --- 改善点③: 計算量の改善 ---
+    # 検索対象のリストをsetに変換することで、 'in' を使った存在チェックが高速になります。(O(n) -> O(1))
+    assigned_user_ids_set = set(assigned_user_ids_list)
+    unassigned_attendees = [user for user in assignable_attendees if user.id not in assigned_user_ids_set]
+
     max_session_members = 0
+    # practice.sessions と session.members は既に読み込み済みのため、DBアクセスは発生しない
     for session in practice.sessions:
         if len(session.members) > max_session_members:
             max_session_members = len(session.members)
+    
     required_transport_boards = max(0, max_session_members - boards_at_location)
+
+    # これらのクエリは元々効率的なので変更なし
     transports_to = Transport.query.filter_by(practice_id=practice.id, direction='to').all()
     transports_from = Transport.query.filter_by(practice_id=practice.id, direction='from').all()
+
+    # --- 改善点④: 不要なデータ取得の抑制 ---
+    # Boardテーブルの全情報を取得するのは、テーブルが大きくなると非常に非効率です。
+    # もしテンプレートで全てのボードが必要な場合でも、利用するカラムだけに絞るべきです。
+    # ここでは、テンプレートでボードオブジェクト全体が必要だと仮定し、元のコードを残しますが、
+    # 本来は見直すべき最重要ポイントの一つです。
+    # 例: all_boards = Board.query.with_entities(Board.id, Board.name).order_by(Board.name).all()
     all_boards = Board.query.order_by(Board.name).all()
+
     transported_to_board_ids = [t.board_id for t in transports_to]
     boards_at_practice = Board.query.filter((Board.location == practice.location) | (Board.id.in_(transported_to_board_ids))).all()
+    
     return render_template('practice/detail.html', 
                            practice=practice, 
                            user_attendance=user_attendance, 
@@ -479,7 +523,7 @@ def practice_detail(practice_id):
                            transports_from=transports_from,
                            all_boards=all_boards,
                            boards_at_practice=boards_at_practice)
-
+    
 @app.route('/practices/answer/<int:attendance_id>', methods=['POST'])
 @login_required
 @member_required
@@ -795,6 +839,7 @@ def delete_announcement(announcement_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
