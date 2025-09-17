@@ -11,6 +11,12 @@ import click
 import random
 import re # 自然順ソートのために正規表現ライブラリをインポート
 from sqlalchemy.orm import joinedload, subqueryload
+
+from .models import Practice, Session, User, Attendance, Board, Transport 
+
+# もしくは、Sessionだけ追加
+from .models import Session
+
 # JSTタイムゾーンの定義 (UTC+9)
 JST = timezone(timedelta(hours=+9), 'JST')
 
@@ -839,6 +845,7 @@ def delete_announcement(announcement_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
