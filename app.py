@@ -20,7 +20,7 @@ from markupsafe import Markup
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 import click
-
+from sqlalchemy.orm import load_only
 # =============================================================================
 # Settings / Logging
 # =============================================================================
@@ -665,48 +665,61 @@ def create_practice():
 @login_required
 def practice_detail(practice_id: int):
     practice = (
-    Practice.query.options(
-        # NG: selectinload(Practice.sessions).selectinload(Practice.sessions.members),
-        selectinload(Practice.sessions).selectinload(PracticeSession.members),
-        selectinload(Practice.attendances).selectinload(Attendance.user),
-        selectinload(Practice.transports).selectinload(Transport.user),
-        selectinload(Practice.transports).selectinload(Transport.board),
+        Practice.query.options(
+            # セッション -> メンバー
+            selectinload(Practice.sessions).selectinload(PracticeSession.members),
+
+            # 出欠 -> ユーザー
+            selectinload(Practice.attendances).selectinload(Attendance.user),
+
+            # 重要: transports を起点に user, board を「別々の」オプションとして指定
+            selectinload(Practice.transports).selectinload(Transport.user),
+            selectinload(Practice.transports).selectinload(Transport.board),
+        )
+        .filter_by(id=practice_id)
+        .first_or_404()
     )
-    .filter_by(id=practice_id)
-    .first_or_404()
-)
-    # N+1回避のためselectinload
 
+    # 参加者はpreload済みを並び替え（追加クエリ無し）
+    all_attendances: List[Attendance] = sorted(
+        practice.attendances,
+        key=lambda att: ((att.user.generation or ""), att.user.username),
+    )
+    user_attendance = next((a for a in all_attendances if a.user_id == current_user.id), None)
 
-    user_attendance = Attendance.query.filter_by(practice_id=practice.id, user_id=current_user.id).first()
-    all_attendances: List[Attendance] = (
-        Attendance.query.filter_by(practice_id=practice.id)
-        .join(User)
-        .order_by(User.generation, User.username)
+    # 会場にあるボードは必要カラムのみ取得
+    boards_at_location_list = (
+        Board.query.options(load_only(Board.id, Board.name))
+        .filter_by(location=practice.location)
         .all()
     )
+    boards_at_location = len(boards_at_location_list)
 
-    boards_at_location = Board.query.filter_by(location=practice.location).count()
-
+    # セッション未割り当て者
     assignable_attendees = [att.user for att in all_attendances if att.status in ["present", "late_leave"]]
-    assigned_user_ids = [member.id for session in practice.sessions for member in session.members]
+    assigned_user_ids = {member.id for session in practice.sessions for member in session.members}
     unassigned_attendees = [user for user in assignable_attendees if user.id not in assigned_user_ids]
 
-    # セッション最大人数
+    # セッション最大人数（最大部の参加人数）
     max_session_members = max((len(s.members) for s in practice.sessions), default=0)
     required_transport_boards = max(0, max_session_members - boards_at_location)
 
-    transports_to = Transport.query.filter_by(practice_id=practice.id, direction="to").all()
-    transports_from = Transport.query.filter_by(practice_id=practice.id, direction="from").all()
+    # 運搬はpreload済みから絞り込み（追加クエリ無し）
+    transports_to = [t for t in practice.transports if t.direction == "to"]
+    transports_from = [t for t in practice.transports if t.direction == "from"]
 
-    # ボード一覧（自然順）
-    all_boards = Board.query.all()
+    # 全ボード（選択UI用）。必要カラムのみ + 自然順
+    all_boards = (
+        Board.query.options(load_only(Board.id, Board.name)).all()
+    )
     all_boards = sorted(all_boards, key=lambda b: natural_sort_key(b.name))
 
-    transported_to_board_ids = [t.board_id for t in transports_to]
-    boards_at_practice = Board.query.filter(
-        (Board.location == practice.location) | (Board.id.in_(transported_to_board_ids))
-    ).all()
+    # 会場常駐 + 当日持ち込み(to) のユニーク集合
+    transported_to_boards = [t.board for t in transports_to if t.board is not None]
+    boards_at_practice_dict = {b.id: b for b in boards_at_location_list}
+    for b in transported_to_boards:
+        boards_at_practice_dict[b.id] = b
+    boards_at_practice = list(boards_at_practice_dict.values())
 
     return render_template(
         "practice/detail.html",
@@ -784,16 +797,17 @@ def assign_member():
     user_ids = [to_int_or_none(uid) for uid in user_ids_raw]
     user_ids = [uid for uid in user_ids if uid is not None]
 
-    assigned_count = 0
+    existing_member_ids = {u.id for u in session.members}
+    # ここで一括取得（ループ内の User.query.get(...) を排除）
+    users_to_add = User.query.filter(User.id.in_(user_ids)).all()
+
     assigned_usernames: List[str] = []
-    for user_id in user_ids:
-        user = User.query.get(user_id)
-        if user and user not in session.members:
+    for user in users_to_add:
+        if user.id not in existing_member_ids:
             session.members.append(user)
-            assigned_count += 1
             assigned_usernames.append(user.username)
 
-    if assigned_count > 0:
+    if assigned_usernames:
         db.session.commit()
         flash(f'{", ".join(assigned_usernames)} を{session.session_number}部に割り当てました。', "success")
     else:
